@@ -1,3 +1,3 @@
 # user-service
 
-Simple user-service integrated with opentelemetry
+Simple user-service integrated with opentelemetry for lab 01
