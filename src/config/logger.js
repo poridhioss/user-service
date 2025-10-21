@@ -1,29 +1,43 @@
-const winston = require('winston');
-const opentelemetry = require('@opentelemetry/api');
+const { logs } = require('@opentelemetry/api-logs');
+const { SeverityNumber } = require('@opentelemetry/api-logs');
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json(),
-    winston.format.metadata({
-      fillExcept: ['message', 'level', 'timestamp', 'traceId', 'spanId']
-    }),
-    winston.format((info) => {
-      const activeSpan = opentelemetry.trace.getActiveSpan();
-      if (activeSpan) {
-        const spanContext = activeSpan.spanContext();
-        info.traceId = spanContext.traceId;
-        info.spanId = spanContext.spanId;
-      }
-      return info;
-    })()
-  ),
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-    new winston.transports.Console()
-  ],
-});
+// Get the logger provider
+const loggerProvider = logs.getLoggerProvider();
+const logger = loggerProvider.getLogger('user-service', '0.1.0');
 
-module.exports = logger;
+const log = {
+  info: (message, attributes = {}) => {
+    logger.emit({
+      severityNumber: SeverityNumber.INFO,
+      severityText: 'INFO',
+      body: message,
+      attributes,
+    });
+  },
+  error: (message, attributes = {}) => {
+    logger.emit({
+      severityNumber: SeverityNumber.ERROR,
+      severityText: 'ERROR',
+      body: message,
+      attributes,
+    });
+  },
+  warn: (message, attributes = {}) => {
+    logger.emit({
+      severityNumber: SeverityNumber.WARN,
+      severityText: 'WARN',
+      body: message,
+      attributes,
+    });
+  },
+  debug: (message, attributes = {}) => {
+    logger.emit({
+      severityNumber: SeverityNumber.DEBUG,
+      severityText: 'DEBUG',
+      body: message,
+      attributes,
+    });
+  },
+};
+
+module.exports = log;
