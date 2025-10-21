@@ -11,10 +11,10 @@ exporters:
     endpoint: "tempo:4317"
     tls:
       insecure: true
-  loki:
-    endpoint: "http://loki:3100/loki/api/v1/push"
-    headers:
-      X-Scope-OrgID: "1"
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
 
 processors:
   batch:
@@ -30,4 +30,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [loki]
+      exporters: [otlphttp/loki]
