@@ -1,6 +1,15 @@
 const { body, validationResult } = require('express-validator');
-const { trace, SpanStatusCode } = require('@opentelemetry/api');
+const { trace, SpanStatusCode, metrics } = require('@opentelemetry/api');
+const { SemanticAttributes } = require('@opentelemetry/semantic-conventions');
 const logger = require('../config/logger');
+
+
+// Initialize metrics
+const meter = metrics.getMeter('user-service', '0.1.0');
+const validationErrorCounter = meter.createCounter('validation_errors_total', {
+  description: 'Total number of validation errors',
+  unit: 'errors',
+});
 
 
 // exports an array of middlewares. name checking, email checking, and then the validation function.
@@ -39,6 +48,10 @@ const validateRequest = [
           httpMethod: req.method,
         });
 
+        validationErrorCounter.add(1, {
+          'validation.errors': errorMessages,
+        });
+
         res.status(400).json({ errors: errors.array() });
         return;
       }
@@ -68,6 +81,7 @@ const validateRequest = [
         });
         span.recordException(error);
       }
+      validationErrorCounter.add(1, { 'error.type': error.name || 'UnknownError' });
       next(error);
     }
   },

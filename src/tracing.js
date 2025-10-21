@@ -2,6 +2,8 @@ require('dotenv').config();
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-grpc');
 const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
+const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
+const { PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics');
 const { SimpleLogRecordProcessor, LoggerProvider } = require('@opentelemetry/sdk-logs');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
 
@@ -21,13 +23,19 @@ const sdk = new NodeSDK({
       url: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://otel-collector:4318/v1/logs',
     })
   ),
+  metricReader: new PeriodicExportingMetricReader({
+    exporter: new OTLPMetricExporter({
+      url: process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT || 'http://otel-collector:4318/v1/metrics',
+    }),
+    exportIntervalMillis: 20000,
+  }),
   instrumentations: [instrumentations],
   serviceName: process.env.OTEL_SERVICE_NAME || 'user-service',
 });
 
 function initTracing() {
     sdk.start();
-    console.log('OpenTelemetry tracing initialized'); // Console log for early feedback
+    console.log('OpenTelemetry tracing, logging, and metrics initialized'); // Console log for early feedback
   
     process.on('SIGTERM', () => {
       sdk
