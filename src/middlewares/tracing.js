@@ -1,10 +1,27 @@
-const { trace, SpanStatusCode } = require('@opentelemetry/api');
+const { trace, SpanStatusCode, metrics } = require('@opentelemetry/api');
 const { SemanticAttributes } = require('@opentelemetry/semantic-conventions');
 
-function tracingMiddleware(req, res, next) {
 
+// Metrics Initialization
+const meter = metrics.getMeter('user-service', '0.1.0');
+const requestCounter = meter.createCounter('http_requests_total', {
+  description: 'Total number of HTTP requests',
+  unit: 'requests',
+});
+const requestDuration = meter.createHistogram('http_request_duration_seconds', {
+  description: 'HTTP request latency in seconds',
+  unit: 'seconds',
+  advice: {
+    explicitBucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  },
+});
+
+
+
+function tracingMiddleware(req, res, next) {
   // create a user-service tracer
   const tracer = trace.getTracer('user-service');
+  const startTime = Date.now();
   
   // Get the route path (e.g., '/api/users/:id') or fallback to URL path
   const routePath = req.route ? req.route.path : req.path;
@@ -24,6 +41,20 @@ function tracingMiddleware(req, res, next) {
 
       // Override res.end to set status code and end the span
       res.end = function (...args) {
+
+        // calculate value and attr
+        const durationSeconds = (Date.now() - startTime) / 1000;
+        const attributes = {
+          [SemanticAttributes.HTTP_METHOD]: req.method,
+          [SemanticAttributes.HTTP_ROUTE]: routePath,
+          [SemanticAttributes.HTTP_STATUS_CODE]: res.statusCode,
+        };
+
+        // Record metrics
+        requestCounter.add(1, attributes);
+        requestDuration.record(durationSeconds, attributes);
+
+        // set span attribute
         span.setAttribute(SemanticAttributes.HTTP_STATUS_CODE, res.statusCode);
         span.end();
         return originalEnd.apply(res, args);
